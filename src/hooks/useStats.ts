@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BarChart3, Clock, Workflow, Zap } from 'lucide-react';
+import { BarChart3, Clock, Zap } from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 
 export interface Stat {

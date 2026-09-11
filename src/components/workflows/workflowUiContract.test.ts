@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 const dashboardUrl = new URL('../Dashboard.tsx', import.meta.url);
 const recentUrl = new URL('./RecentWorkflows.tsx', import.meta.url);
+const hookUrl = new URL('../../hooks/useWorkflows.ts', import.meta.url);
 
 async function source(url: URL) {
   return readFile(url, 'utf8');
@@ -27,5 +28,13 @@ describe('workflow dashboard state ownership', () => {
     expect(dashboard).toContain('onDelete={deleteWorkflow}');
     expect(recent).not.toContain("from '../../hooks/useWorkflows'");
     expect(recent).not.toContain('useWorkflows()');
+  });
+
+  it('restores and saves the shared workflow collection through the persistence module', async () => {
+    const hook = await source(hookUrl);
+    expect(hook).toContain("from '../services/workflowPersistence'");
+    expect(hook).toContain('loadWorkflows(window.localStorage');
+    expect(hook).toContain('saveWorkflows(window.localStorage, workflows)');
+    expect(hook).toContain('crypto.randomUUID()');
   });
 });

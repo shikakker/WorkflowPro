@@ -1,25 +1,30 @@
 # WorkflowPro
 
-Workflow-automation dashboard **frontend prototype** for presenting automation status, recent workflows, search / filtering, pagination, and integration cards for tools such as Make.com, n8n, and Google Calendar.
+WorkflowPro is a React/Vite workflow-operations prototype for presenting automation health, recent workflows, search/filtering, pagination, and integration concepts. The hardening branch now also contains a tested **n8n execution adapter contract**, but the UI is not yet wired to a durable server execution backend.
 
-The current repository is a React / Vite UI prototype using local component state. It does **not** connect to Make.com, n8n, Google Calendar, or a workflow-execution backend in the audited code path.
+The repository should therefore be presented as a **code-ready workflow dashboard plus bounded provider-adapter prototype**, not as a finished automation platform.
 
-## Product areas
+## Implementation matrix
 
-- Dashboard overview
-- Workflow statistics
-- Recent-workflow list
-- Workflow search
-- Status filtering
-- Sorting
-- Pagination
-- Status updates
-- Workflow deletion
-- Integration cards
-- Sidebar / layout shell
-- New-workflow CTA
+| Area | Status | Evidence |
+| --- | --- | --- |
+| Dashboard / workflow list UI | Implemented prototype | `src/` components and hooks |
+| Search / filtering / sorting / pagination | Implemented | workflow UI hooks/components |
+| Local workflow status updates / deletion | Implemented demo state | `src/hooks/useWorkflows.ts` |
+| Integration cards | Demo state | `src/hooks/useIntegrations.ts` |
+| Typed workflow step config | Implemented | `src/types/index.ts` |
+| n8n provider adapter | Implemented/tested boundary | `src/services/workflowExecution.ts` |
+| n8n config validation | Implemented | URL/API-key validation and HTTPS requirement |
+| Provider timeout / sanitized failures | Implemented | bounded 15s execution request |
+| Provider execution ID mapping | Implemented | successful response normalization |
+| Deterministic CI | Implemented | Node 22, `npm ci`, tests, typecheck, lint, build |
+| Production dependency audit | Verified clean in hardening pass | 0 vulnerabilities in the audit run used for the PR |
+| Server endpoint / secret ownership | Pending | adapter is not yet exposed through a production server boundary |
+| Durable workflows / run history | Pending | dashboard data remains local/demo |
+| Live n8n integration smoke | Pending | no production n8n endpoint is claimed |
+| Scheduling / webhooks / retries / idempotency | Pending | requires verified provider/runtime design |
 
-## Current workflow state
+## Current dashboard state
 
 `src/hooks/useWorkflows.ts` initializes local demo workflows such as:
 
@@ -30,96 +35,70 @@ Data Backup
 Lead Generation
 ```
 
-with statuses including:
+with statuses including `active`, `error`, and `paused`. Updates and deletion operate on local application state; refreshing the page does not provide durable workflow persistence.
 
-```text
-active
-error
-paused
-```
+## n8n execution boundary
 
-Updates and deletion operate only on React state.
+`src/services/workflowExecution.ts` defines a narrow provider boundary for a selected n8n deployment. It currently verifies:
 
-Refreshing the page resets the current workflow list unless another persistence layer is added.
+- a non-empty base URL and API key;
+- HTTPS outside localhost/127.0.0.1 development;
+- a non-empty workflow ID;
+- POST execution to the provider path owned by the adapter;
+- `X-N8N-API-KEY` ownership inside the adapter;
+- a 15-second request timeout;
+- normalized successful provider execution IDs;
+- sanitized HTTP/network/timeout failures without provider-body or API-key leakage.
 
-## “New Workflow” boundary
+Tests were written against this boundary before its implementation and are part of the permanent CI gate.
 
-The dashboard displays a prominent **New Workflow** button, and `useWorkflows()` includes an `addWorkflow()` helper, but the current top-level dashboard button is not shown wired to a complete workflow-builder / save flow in the audited application path.
+This does **not** yet mean WorkflowPro has a live n8n integration. Before production use, the selected n8n deployment's exact endpoint/auth contract must be verified and the adapter must run behind a server-owned API/environment boundary so credentials never become browser configuration.
 
-Do not describe this repository as a functioning automation builder or execution engine without validating that end-to-end creation flow.
+## Integration cards
 
-## Integration cards are demo state
+The visible Make.com, n8n, and Google Calendar cards are still demo/product-concept state. They are not evidence of OAuth sessions or connected production accounts.
 
-`useIntegrations.ts` currently defines local records for:
+Do not describe these cards as live integrations until provider connection state is driven by real backend data.
 
-```text
-Make.com
-n8n
-Google Calendar
-```
-
-with statuses such as:
-
-```text
-Connected
-5 minutes ago
-10 minutes ago
-1 hour ago
-```
-
-Those values are hard-coded UI state.
-
-The package contains no Make.com SDK, n8n API client, Google Calendar OAuth integration, backend credential store, or webhook infrastructure.
-
-Therefore the current integration cards are **product concepts**, not live connections.
-
-## Intended architecture
-
-A real WorkflowPro backend could separate workflow definition from execution:
+## Intended execution flow
 
 ```text
 workflow UI
     |
     v
-workflow API / database
+server-owned WorkflowPro API
     |
-    +-- trigger definition
-    +-- step graph
-    +-- credentials / secrets
-    +-- execution status
+    +-- workflow definitions
+    +-- credentials / secret references
+    +-- execution state
     +-- run history
     |
     v
-integration adapters
+provider adapters
     |
-    +-- n8n
+    +-- n8n  (first tested adapter contract)
     +-- Make.com
     +-- Google Calendar
-    `-- other services
+    `-- other providers
 ```
 
-## Workflow-engine requirements
+The server-owned API/persistence layer is the next architectural boundary; it is intentionally not fabricated in this branch.
 
-A production automation product would need explicit behavior for:
+## Production requirements still open
 
-- durable workflow definitions;
-- trigger configuration;
-- action configuration;
-- credentials / OAuth;
-- secret isolation;
-- retries;
-- idempotency;
-- execution logs;
-- timeouts;
-- rate limits;
-- scheduling;
-- webhook verification;
-- step dependencies;
-- failure / partial-success behavior;
-- versioning;
-- audit history.
+A complete automation product still needs explicit behavior for:
 
-None of those runtime semantics should be inferred from dashboard status cards alone.
+- durable workflow definitions and versions;
+- authenticated users/workspaces;
+- server-side credential/OAuth storage;
+- idempotency and retry policy;
+- execution polling/webhook completion;
+- execution logs and audit history;
+- scheduling and trigger lifecycle;
+- webhook signature verification;
+- rate limits and quotas;
+- partial-success/failure semantics;
+- observability and hosted deployment smoke tests.
 
 ## Tech stack
 
@@ -128,36 +107,29 @@ None of those runtime semantics should be inferred from dashboard status cards a
 - Vite 5
 - Tailwind CSS
 - Lucide React
+- Vitest
+- GitHub Actions
 
-The current package intentionally remains small and contains no external automation-platform SDKs.
+The n8n boundary uses standard `fetch`; no external automation-platform SDK is required for the current slice.
 
 ## Local development
 
-### Requirements
-
-- Node.js 18+
-- npm
-
-### Install
+Requirements: Node.js 22 and npm.
 
 ```bash
 git clone https://github.com/shikakker/WorkflowPro.git
 cd WorkflowPro
-npm install
-```
-
-Run:
-
-```bash
+npm ci
 npm run dev
 ```
 
-Build / lint / preview:
+Verification:
 
 ```bash
+npm test
+npm run typecheck
 npm run lint
 npm run build
-npm run preview
 ```
 
 ## StackBlitz
@@ -168,11 +140,11 @@ https://stackblitz.com/~/github.com/shikakker/WorkflowPro
 
 ## Current status
 
-**Functional workflow-management dashboard prototype using local demo state.** Search, filters, sorting, pagination, workflow status changes, deletion, stats, and integration presentation are implemented. Persistent workflows, real integrations, authentication, execution, scheduling, and automation credentials are not represented by the current repository.
+**Code-ready workflow-management dashboard prototype with a tested, bounded n8n provider-adapter contract.** Dashboard interaction remains local/demo state; server credential ownership, durable workflow/run storage, real provider execution, scheduling, authentication, and production deployment smoke tests remain explicit next gates.
 
 ## Product intent
 
-The project explores the operations layer around automation: users need a fast way to understand which workflows are healthy, which are failing, what changed recently, and which external systems are connected. The next engineering step is connecting the UI to a durable workflow / execution model rather than adding more static integration cards.
+WorkflowPro explores the operations layer around automation: users need to understand which workflows are healthy, what failed, what changed recently, and which external systems are connected. The engineering direction is to connect this UI to a server-owned execution/persistence model rather than adding more static integration cards.
 
 ## License
 

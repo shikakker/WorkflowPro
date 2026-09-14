@@ -92,7 +92,7 @@ export function Dashboard() {
         </form>
       )}
 
-      <StatGrid />
+      <StatGrid workflows={workflows} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <RecentWorkflows

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   deriveExecutionHistoryStats,
   loadExecutionHistory,
+  recoverInterruptedExecutions,
   saveExecutionHistory,
   type WorkflowExecutionRecord,
 } from './workflowExecutionHistory';
@@ -93,5 +94,17 @@ describe('workflow execution history', () => {
       failedExecutions: 1,
       successRate: 50,
     });
+  });
+
+  it('marks runs left running across a reload as interrupted failures', () => {
+    const recoveredAt = new Date('2026-09-15T12:30:00.000Z');
+    const recovered = recoverInterruptedExecutions(records, recoveredAt);
+
+    expect(recovered[2]).toMatchObject({
+      status: 'failed',
+      error: 'Execution was interrupted before completion',
+    });
+    expect(recovered[2].completedAt?.toISOString()).toBe(recoveredAt.toISOString());
+    expect(recovered[0]).toEqual(records[0]);
   });
 });

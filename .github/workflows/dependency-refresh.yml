@@ -1,0 +1,46 @@
+name: Dependency refresh
+
+on:
+  push:
+    branches: [portfolio-improvements-2026-08]
+    paths:
+      - .github/workflows/dependency-refresh.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: portfolio-improvements-2026-08
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply non-breaking audit fixes
+        run: npm audit fix
+      - name: Full dependency audit
+        run: npm audit --audit-level=high
+      - name: Tests
+        run: npm test
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+      - name: Commit verified dependency refresh
+        run: |
+          git config user.name 'Egor Denisov'
+          git config user.email 'designer.egor@ya.ru'
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo 'No dependency changes to commit'
+            exit 0
+          fi
+          git commit -m 'build: refresh verified tooling dependencies'
+          git push origin HEAD:portfolio-improvements-2026-08

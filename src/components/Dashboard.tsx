@@ -1,30 +1,41 @@
 import React, { useState } from 'react';
 import { Workflow } from 'lucide-react';
 import { useWorkflows } from '../hooks/useWorkflows';
+import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { StatGrid } from './stats/StatGrid';
 import { RecentWorkflows } from './workflows/RecentWorkflows';
 import { IntegrationsList } from './integrations/IntegrationsList';
 
 export function Dashboard() {
   const { workflows, addWorkflow, updateWorkflowStatus, deleteWorkflow } = useWorkflows();
+  const {
+    executions,
+    runWorkflow,
+    executingWorkflowIds,
+    latestExecutionByWorkflow,
+  } = useWorkflowExecutions();
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
   const [workflowName, setWorkflowName] = useState('');
   const [workflowDescription, setWorkflowDescription] = useState('');
+  const [providerWorkflowId, setProviderWorkflowId] = useState('');
 
   const handleCreateWorkflow = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const name = workflowName.trim();
     if (!name) return;
 
+    const normalizedProviderWorkflowId = providerWorkflowId.trim();
     addWorkflow({
       name,
       description: workflowDescription.trim(),
       status: 'paused',
+      providerWorkflowId: normalizedProviderWorkflowId || undefined,
       steps: [],
       createdBy: 'local-user',
     });
     setWorkflowName('');
     setWorkflowDescription('');
+    setProviderWorkflowId('');
     setIsCreatingWorkflow(false);
   };
 
@@ -74,6 +85,23 @@ export function Dashboard() {
               placeholder="What this automation should do"
             />
           </div>
+          <div>
+            <label htmlFor="provider-workflow-id" className="block text-sm font-medium text-gray-700">
+              n8n workflow ID (optional)
+            </label>
+            <input
+              id="provider-workflow-id"
+              value={providerWorkflowId}
+              onChange={event => setProviderWorkflowId(event.target.value)}
+              maxLength={200}
+              autoComplete="off"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              placeholder="Provider workflow identifier"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Required only for Run now. Provider credentials remain server-side and are never stored in this browser form.
+            </p>
+          </div>
           <div className="flex justify-end gap-3">
             <button
               type="button"
@@ -92,13 +120,16 @@ export function Dashboard() {
         </form>
       )}
 
-      <StatGrid workflows={workflows} />
+      <StatGrid workflows={workflows} executions={executions} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <RecentWorkflows
           workflows={workflows}
           onStatusChange={updateWorkflowStatus}
           onDelete={deleteWorkflow}
+          onExecute={runWorkflow}
+          executingWorkflowIds={executingWorkflowIds}
+          latestExecutionByWorkflow={latestExecutionByWorkflow}
         />
         <IntegrationsList />
       </div>

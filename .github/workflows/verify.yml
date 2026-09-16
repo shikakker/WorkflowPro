@@ -6,17 +6,24 @@ on:
     branches:
       - portfolio-improvements-2026-08
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm audit --omit=dev --audit-level=high
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Tooling dependency audit
+        run: npm audit --audit-level=high
       - run: npm test
       - run: npm run typecheck
       - run: npm run lint

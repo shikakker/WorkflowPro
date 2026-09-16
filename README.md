@@ -1,118 +1,102 @@
 # WorkflowPro
 
-WorkflowPro is a React/Vite workflow-operations prototype for presenting automation health, recent workflows, search/filtering, pagination, and integration concepts. The hardening branch now also contains a tested **n8n execution adapter contract**, but the UI is not yet wired to a durable server execution backend.
+WorkflowPro is a React/Vite workflow-operations prototype with a real server-owned execution boundary for n8n. The current hardening branch supports browser-local workflow management, guarded **Run now** execution through a same-origin API, recoverable local execution history, and dashboard metrics derived from recorded runs.
 
-The repository should therefore be presented as a **code-ready workflow dashboard plus bounded provider-adapter prototype**, not as a finished automation platform.
+It is not yet a multi-user production automation platform: workflow definitions and execution history are still stored in the browser, and a real n8n deployment plus authenticated durable backend are required before production use.
 
-## Implementation matrix
-
-| Area | Status | Evidence |
-| --- | --- | --- |
-| Dashboard / workflow list UI | Implemented prototype | `src/` components and hooks |
-| Search / filtering / sorting / pagination | Implemented | workflow UI hooks/components |
-| Local workflow status updates / deletion | Implemented demo state | `src/hooks/useWorkflows.ts` |
-| Integration cards | Demo state | `src/hooks/useIntegrations.ts` |
-| Typed workflow step config | Implemented | `src/types/index.ts` |
-| n8n provider adapter | Implemented/tested boundary | `src/services/workflowExecution.ts` |
-| n8n config validation | Implemented | URL/API-key validation and HTTPS requirement |
-| Provider timeout / sanitized failures | Implemented | bounded 15s execution request |
-| Provider execution ID mapping | Implemented | successful response normalization |
-| Deterministic CI | Implemented | Node 22, `npm ci`, tests, typecheck, lint, build |
-| Production dependency audit | Verified clean in hardening pass | 0 vulnerabilities in the audit run used for the PR |
-| Server endpoint / secret ownership | Pending | adapter is not yet exposed through a production server boundary |
-| Durable workflows / run history | Pending | dashboard data remains local/demo |
-| Live n8n integration smoke | Pending | no production n8n endpoint is claimed |
-| Scheduling / webhooks / retries / idempotency | Pending | requires verified provider/runtime design |
-
-## Current dashboard state
-
-`src/hooks/useWorkflows.ts` initializes local demo workflows such as:
+## Core flow
 
 ```text
-Calendar Sync
-Email Campaign Automation
-Data Backup
-Lead Generation
+Create workflow
+  |
+  | optional n8n workflow ID
+  v
+Activate workflow
+  |
+  v
+Run now
+  |
+  v
+POST /api/workflows/execute
+  |
+  | server-only N8N_BASE_URL / N8N_API_KEY
+  v
+n8n adapter
+  |
+  v
+sanitized succeeded / failed result
+  |
+  v
+local execution history + dashboard metrics
 ```
 
-with statuses including `active`, `error`, and `paused`. Updates and deletion operate on local application state; refreshing the page does not provide durable workflow persistence.
+Provider credentials are never accepted from the browser and are not stored in workflow records.
 
-## n8n execution boundary
+## What works
 
-`src/services/workflowExecution.ts` defines a narrow provider boundary for a selected n8n deployment. It currently verifies:
+- create, pause/activate, filter, sort and delete local workflows;
+- persist validated workflow definitions in versioned browser storage;
+- bind an optional n8n workflow ID to a workflow definition;
+- execute active/provider-bound workflows through the same-origin server API;
+- prevent duplicate concurrent runs for the same workflow in the current client session;
+- recover runs left `running` across a reload as interrupted failures instead of leaving infinite loading state;
+- persist a bounded local history of the newest 100 executions;
+- show truthful execution totals and success/failure rate from recorded history;
+- validate workflow IDs and provider configuration server-side;
+- require HTTPS for non-local n8n endpoints;
+- enforce a 15-second provider timeout and sanitized errors;
+- keep server responses `no-store` and avoid leaking provider bodies or API keys;
+- fail cleanly on browser/server network errors.
 
-- a non-empty base URL and API key;
-- HTTPS outside localhost/127.0.0.1 development;
-- a non-empty workflow ID;
-- POST execution to the provider path owned by the adapter;
-- `X-N8N-API-KEY` ownership inside the adapter;
-- a 15-second request timeout;
-- normalized successful provider execution IDs;
-- sanitized HTTP/network/timeout failures without provider-body or API-key leakage.
+The Make.com, n8n and Google Calendar integration cards remain product/demo surfaces; they are not claims of active OAuth connections.
 
-Tests were written against this boundary before its implementation and are part of the permanent CI gate.
+## Current product boundary
 
-This does **not** yet mean WorkflowPro has a live n8n integration. Before production use, the selected n8n deployment's exact endpoint/auth contract must be verified and the adapter must run behind a server-owned API/environment boundary so credentials never become browser configuration.
+Workflow definitions and run history use browser `localStorage`. That makes the current release useful as a verifiable single-browser prototype, but it does **not** provide:
 
-## Integration cards
+- authenticated users or workspaces;
+- shared/multi-device workflow state;
+- server-durable execution history;
+- provider job polling/webhook reconciliation;
+- retries/backoff or idempotent job orchestration;
+- scheduling/trigger lifecycle;
+- production observability or audit logs;
+- verified live n8n execution without real server credentials.
 
-The visible Make.com, n8n, and Google Calendar cards are still demo/product-concept state. They are not evidence of OAuth sessions or connected production accounts.
+Those capabilities should be implemented on a durable authenticated backend rather than simulated in client state.
 
-Do not describe these cards as live integrations until provider connection state is driven by real backend data.
+## n8n server configuration
 
-## Intended execution flow
+Copy the safe template and provide real values only in the server environment:
+
+```bash
+cp .env.example .env
+```
+
+Required server variables:
 
 ```text
-workflow UI
-    |
-    v
-server-owned WorkflowPro API
-    |
-    +-- workflow definitions
-    +-- credentials / secret references
-    +-- execution state
-    +-- run history
-    |
-    v
-provider adapters
-    |
-    +-- n8n  (first tested adapter contract)
-    +-- Make.com
-    +-- Google Calendar
-    `-- other providers
+N8N_BASE_URL=https://your-n8n.example.com
+N8N_API_KEY=...
 ```
 
-The server-owned API/persistence layer is the next architectural boundary; it is intentionally not fabricated in this branch.
+Never expose the API key through `VITE_*` variables or browser code.
 
-## Production requirements still open
+The selected n8n deployment's exact execution endpoint/auth semantics must still be verified against the real provider before production promotion.
 
-A complete automation product still needs explicit behavior for:
-
-- durable workflow definitions and versions;
-- authenticated users/workspaces;
-- server-side credential/OAuth storage;
-- idempotency and retry policy;
-- execution polling/webhook completion;
-- execution logs and audit history;
-- scheduling and trigger lifecycle;
-- webhook signature verification;
-- rate limits and quotas;
-- partial-success/failure semantics;
-- observability and hosted deployment smoke tests.
-
-## Tech stack
+## Stack
 
 - React 18
 - TypeScript
-- Vite 5
+- Vite 8.3.0
 - Tailwind CSS
 - Lucide React
-- Vitest
-- GitHub Actions
+- Vitest 5.0.1
+- ESLint 9 compatibility line with zero-warning CI
+- GitHub Actions on Node 22
+- Vercel-style server function under `api/workflows/execute.ts`
 
-The n8n boundary uses standard `fetch`; no external automation-platform SDK is required for the current slice.
-
-## Local development
+## Development
 
 Requirements: Node.js 22 and npm.
 
@@ -130,22 +114,24 @@ npm test
 npm run typecheck
 npm run lint
 npm run build
+npm audit --omit=dev --audit-level=high
+npm audit --audit-level=high
 ```
 
-## StackBlitz
+Or run the local code checks together:
 
-```text
-https://stackblitz.com/~/github.com/shikakker/WorkflowPro
+```bash
+npm run check
 ```
 
-## Current status
+Permanent GitHub CI is read-only and blocks on clean install, production audit, full dependency audit, tests, typecheck, zero-warning lint and production build.
 
-**Code-ready workflow-management dashboard prototype with a tested, bounded n8n provider-adapter contract.** Dashboard interaction remains local/demo state; server credential ownership, durable workflow/run storage, real provider execution, scheduling, authentication, and production deployment smoke tests remain explicit next gates.
+## Deployment
+
+The connected Vercel team currently exposes no project named `WorkflowPro`, `workflowpro` or `workflow-pro`, so this branch does not claim an exact-head hosted preview. A canonical Vercel project must be linked before browser/runtime verification can be completed.
+
+A plain static Vite host is not sufficient for the complete execution flow because `/api/workflows/execute` requires a server/serverless runtime with access to the server-only n8n environment variables.
 
 ## Product intent
 
-WorkflowPro explores the operations layer around automation: users need to understand which workflows are healthy, what failed, what changed recently, and which external systems are connected. The engineering direction is to connect this UI to a server-owned execution/persistence model rather than adding more static integration cards.
-
-## License
-
-See repository files for licensing information.
+WorkflowPro explores the operations layer around automation: users need to see what workflows exist, run a configured workflow without exposing provider credentials, understand whether it succeeded, and recover from failures. The next architectural step is durable authenticated server storage and a verified provider job lifecycle, not more simulated integration cards.

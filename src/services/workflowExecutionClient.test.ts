@@ -39,4 +39,14 @@ describe('workflow execution client seam', () => {
       requestWorkflowExecution({ workflowId: '42', payload: {} }, fetcher),
     ).resolves.toEqual({ status: 'failed', error: 'Execution unavailable' });
   });
+
+  it('maps network failures to a sanitized failed result instead of throwing', async () => {
+    const fetcher = async () => {
+      throw new Error('socket details that must not reach the UI');
+    };
+
+    await expect(
+      requestWorkflowExecution({ workflowId: '42', payload: {} }, fetcher),
+    ).resolves.toEqual({ status: 'failed', error: 'Execution service is unavailable' });
+  });
 });

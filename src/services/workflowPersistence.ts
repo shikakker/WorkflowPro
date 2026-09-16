@@ -30,15 +30,21 @@ function parseWorkflow(value: unknown): Workflow | null {
   if (!Array.isArray(value.steps) || !value.steps.every(isWorkflowStep)) return null;
   if (typeof value.createdBy !== 'string' || value.createdBy.trim().length === 0) return null;
   if (typeof value.updatedAt !== 'string' && !(value.updatedAt instanceof Date)) return null;
+  if (value.providerWorkflowId !== undefined && typeof value.providerWorkflowId !== 'string') return null;
 
   const updatedAt = new Date(value.updatedAt);
   if (Number.isNaN(updatedAt.getTime())) return null;
+
+  const providerWorkflowId = typeof value.providerWorkflowId === 'string'
+    ? value.providerWorkflowId.trim().slice(0, 200)
+    : undefined;
 
   return {
     id: value.id.trim(),
     name: value.name.trim(),
     description: value.description,
     status: value.status as Workflow['status'],
+    providerWorkflowId: providerWorkflowId || undefined,
     steps: value.steps,
     createdBy: value.createdBy.trim(),
     updatedAt,

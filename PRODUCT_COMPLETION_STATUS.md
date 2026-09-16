@@ -8,43 +8,45 @@ Completion branch: `portfolio-improvements-2026-08`.
 
 PR: #2 — Draft; do not merge automatically.
 
+Overall status: **PARTIAL — engineering/release gates are green for the current single-browser scope; live n8n E2E, durable authenticated backend and canonical Vercel binding remain external release boundaries.**
+
 ## Product definition
 
 **User → Problem → Core action → Value → Outcome**
 
-Automation builder/operator → needs a clear place to define and run workflows without exposing provider credentials in the browser → creates and manages workflow definitions, then executes through a same-origin server boundary → keeps provider configuration server-owned and workflow state recoverable locally → obtains a verifiable automation prototype that can later move to durable authenticated storage.
+Automation builder/operator → needs a clear place to define and run workflows without exposing provider credentials in the browser → creates a workflow, binds a provider workflow ID, activates it and executes through a same-origin server boundary → receives a sanitized result recorded in local history → can see truthful run state and success metrics while provider secrets remain server-owned.
 
 ## T01–T10 — Core tasks
 
 | ID | Status | Task / verification |
 | --- | --- | --- |
 | T01 | DONE | Deterministic Node 22 `npm ci` release gate. |
-| T02 | DONE | Tests, typecheck, lint and production build are blocking CI steps. |
+| T02 | DONE | Tests, typecheck, zero-warning lint and production build are blocking CI steps. |
 | T03 | DONE | n8n credentials remain server-owned behind `/api/workflows/execute`. |
 | T04 | DONE | Provider adapter validates workflow IDs, HTTPS outside localhost, timeout and sanitized failures. |
-| T05 | DONE | Workflow definitions persist locally with versioned schema validation and corrupt-data fallback. |
-| T06 | DONE | Dashboard owns one shared workflow collection for create/status/delete behavior. |
-| T07 | DONE | New Workflow form creates a bounded paused workflow and persists it. |
-| T08 | DONE | Dashboard statistics no longer fabricate executions/success; workflow counts derive from current state and unavailable execution metrics are explicitly `Not tracked`. |
-| T09 | DONE | High-severity production dependency audit is a blocking release gate. |
-| T10 | BLOCKED | Production-grade auth + durable server storage + real execution lifecycle require selected backend/provider configuration. |
+| T05 | DONE | Workflow definitions persist locally with schema validation, Date restoration and corrupt-data fallback. |
+| T06 | DONE | Dashboard owns one shared collection for create/status/delete behavior. |
+| T07 | DONE | Workflows can persist an optional provider workflow ID without storing provider credentials. |
+| T08 | DONE | Active provider-bound workflows expose guarded `Run now`; duplicate in-session runs are rejected. |
+| T09 | DONE | Bounded local execution history survives reload, recovers interrupted runs, and drives truthful execution/success metrics. |
+| T10 | BLOCKED | Live n8n E2E requires a real `N8N_BASE_URL` + `N8N_API_KEY` and verification of the selected provider's production execution contract. |
 
 ## I01–I10 — Improvements
 
 | ID | Status | Improvement |
 | --- | --- | --- |
 | I01 | DONE | Same-origin execution seam prevents browser-owned n8n credentials. |
-| I02 | DONE | Request validation and sanitized provider errors. |
-| I03 | DONE | Local persistence restores Dates and rejects corrupt payloads safely. |
-| I04 | DONE | Stable UUID generation with bounded fallback. |
-| I05 | DONE | Shared state removes duplicated workflow collections. |
-| I06 | DONE | Regression tests cover persistence, execution client/server and UI contract. |
-| I07 | DONE | Test-first regression covers truthful dashboard metric derivation. |
-| I08 | DONE | CI distinguishes production dependency risk from dev-only audit noise. |
-| I09 | IN PROGRESS | Bind/identify a canonical Vercel project and run exact-head hosted smoke. |
+| I02 | DONE | Request validation and sanitized provider/network errors. |
+| I03 | DONE | Local workflow persistence rejects malformed records safely. |
+| I04 | DONE | Execution history is bounded to 100 records and restores Date fields safely. |
+| I05 | DONE | Interrupted `running` records recover as explicit failures instead of infinite loading state. |
+| I06 | DONE | Shared state removes duplicated workflow collections. |
+| I07 | DONE | Dashboard execution totals and success rate derive from recorded events instead of mock values. |
+| I08 | DONE | Production and full tooling dependency audits both block permanent CI; current verified graph has 0 audit vulnerabilities. |
+| I09 | BLOCKED | No canonical Vercel project is visible/bound in the connected team for exact-head browser/runtime verification. |
 | I10 | DEFERRED WITH REASON | Production observability belongs with the selected durable execution/backend topology. |
 
-## F01–F10 — Product features
+## F01–F10 — Product features / boundaries
 
 | ID | Status | Feature / boundary |
 | --- | --- | --- |
@@ -53,23 +55,50 @@ Automation builder/operator → needs a clear place to define and run workflows 
 | F03 | DONE | Pause/activate/error status management. |
 | F04 | DONE | Delete workflow from the shared collection. |
 | F05 | DONE | Server-owned n8n execution adapter boundary. |
-| F06 | DONE | Recoverable provider/API failure mapping. |
-| F07 | DONE | Truthful workflow-count dashboard statistics. |
-| F08 | DEFERRED WITH REASON | Durable execution history/retries/idempotency require a server data model. |
-| F09 | DEFERRED WITH REASON | Authenticated multi-user workflow ownership requires durable identity/storage. |
-| F10 | DEFERRED WITH REASON | Real analytics/success-rate metrics require durable execution events; they are not simulated. |
+| F06 | DONE | Provider workflow ID binding and guarded `Run now`. |
+| F07 | DONE | Recoverable provider/API/network failure mapping. |
+| F08 | DONE | Local execution lifecycle/history plus truthful execution/success metrics. |
+| F09 | DEFERRED WITH REASON | Authenticated multi-user workflow ownership and shared history require durable identity/storage. |
+| F10 | DEFERRED WITH REASON | Durable provider job retries/backoff/idempotency/reconciliation require the selected production backend and n8n contract. |
 
 ## Verification evidence
 
-- RED regression run #45 failed for the expected reason: `workflowStats` did not yet exist while all previous test suites passed.
-- GREEN run #53 on the implemented truthful-stats path: tests, typecheck, lint and build PASS.
-- Release-gate run #55 after adding `npm audit --omit=dev --audit-level=high`: install PASS; production audit PASS; tests PASS; typecheck PASS; lint PASS; build PASS.
-- No production credentials, external workflow execution, billing action or production promotion was performed.
+Test-first evidence:
+
+- execution-history RED run `35038740425` failed at tests because `workflowExecutionHistory` intentionally did not exist yet while the previous suites passed;
+- the execution client network-failure regression was added before the client catch/fail-closed implementation;
+- subsequent verification covers provider binding, local history, interrupted-run recovery, UI execution wiring and truthful stats.
+
+Dependency/security evidence:
+
+- initial permanent full-tooling audit exposed dev/build-chain advisories while production audit remained clean;
+- guarded dependency refresh run `35039207670` proved Vite 8.3.0 / Vitest 5.0.1 / maintained lint tooling could reach **0 vulnerabilities**, 24 tests PASS, typecheck PASS, lint PASS and build PASS; only its first push was rejected because the branch advanced concurrently;
+- rerun `35039352216` completed the same audited migration on the current branch and committed the verified package state;
+- the temporary write-capable dependency workflow was then removed; permanent `Verify` is read-only.
+
+Current code checkpoint before documentation-only commits: `0df437ec80d7eb28d8accc94bd7cd3afc7b9e9a7`.
+
+- `npm ci`: PASS.
+- `npm audit --omit=dev --audit-level=high`: PASS.
+- `npm audit --audit-level=high`: PASS / 0 vulnerabilities on the migrated dependency graph.
+- tests: PASS, including workflow execution/history/UI contracts.
+- TypeScript: PASS.
+- ESLint with `--max-warnings=0`: PASS.
+- Vite production build: PASS.
+
+Hosting/provider verification:
+
+- `.env.example` documents server-only `N8N_BASE_URL` and `N8N_API_KEY` without secrets.
+- Connected Vercel team inventory exposes no obvious WorkflowPro project; direct project lookups for `workflowpro` and `workflow-pro` both return 404.
+- No production n8n credentials were available or used, so no external workflow was executed.
+- No merge, production promotion, billing action, secret mutation or destructive operation was performed.
 
 ## Remaining blockers / next action
 
-**BLOCKED ONLY BY:** selecting/provisioning the production auth + durable data backend, verifying the intended real n8n endpoint/auth contract with server-only credentials, and identifying/binding the canonical Vercel project for exact-head browser/runtime verification.
+**BLOCKED ONLY BY:**
 
-Next engineering action after those inputs: persist execution jobs with idempotency/retry/reconciliation, derive dashboard execution metrics from that durable event model, then run builder → execute → result E2E on an exact-head preview.
+1. a real n8n server endpoint/API credential pair and confirmation of the intended production execution contract;
+2. selection/provisioning of the durable auth/data backend for multi-user workflow ownership and server-durable job history;
+3. binding/identifying the canonical Vercel project for exact-head hosted browser/runtime verification.
 
-Overall status: **PARTIAL — code/release gates green; production backend/provider/Vercel binding remain external release boundaries.**
+Next action when those inputs exist: persist execution jobs server-side with idempotency/retry/reconciliation, run a real builder → execute → result E2E, verify hosted responsive/error states and runtime logs, then request explicit approval before production promotion.

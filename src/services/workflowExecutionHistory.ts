@@ -84,6 +84,22 @@ export function loadExecutionHistory(storage: StorageLike): WorkflowExecutionRec
   }
 }
 
+export function recoverInterruptedExecutions(
+  records: WorkflowExecutionRecord[],
+  completedAt = new Date(),
+): WorkflowExecutionRecord[] {
+  return records.map(record => (
+    record.status === 'running'
+      ? {
+          ...record,
+          status: 'failed' as const,
+          completedAt,
+          error: 'Execution was interrupted before completion',
+        }
+      : record
+  ));
+}
+
 export function saveExecutionHistory(
   storage: StorageLike,
   records: WorkflowExecutionRecord[],

@@ -2,6 +2,10 @@ import { BarChart3, Clock, Zap } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Workflow } from '../types';
 import { deriveWorkflowStats } from '../services/workflowStats';
+import {
+  deriveExecutionHistoryStats,
+  type WorkflowExecutionRecord,
+} from '../services/workflowExecutionHistory';
 
 export interface Stat {
   title: string;
@@ -12,8 +16,9 @@ export interface Stat {
   iconColor: string;
 }
 
-export function useStats(workflows: Workflow[]) {
+export function useStats(workflows: Workflow[], executions: WorkflowExecutionRecord[]) {
   const snapshot = deriveWorkflowStats(workflows);
+  const executionStats = deriveExecutionHistoryStats(executions);
 
   const stats: Stat[] = [
     {
@@ -34,16 +39,20 @@ export function useStats(workflows: Workflow[]) {
     },
     {
       title: 'Total Executions',
-      value: 'Not tracked',
-      change: 'Requires execution history',
+      value: String(executionStats.totalExecutions),
+      change: executionStats.runningExecutions > 0
+        ? `${executionStats.runningExecutions} running`
+        : `${executionStats.completedExecutions} completed`,
       trend: 'neutral',
       icon: Clock,
       iconColor: 'text-blue-600',
     },
     {
       title: 'Success Rate',
-      value: 'Not tracked',
-      change: 'Requires execution history',
+      value: executionStats.successRate === null ? '—' : `${executionStats.successRate}%`,
+      change: executionStats.completedExecutions === 0
+        ? 'No completed runs yet'
+        : `${executionStats.successfulExecutions} succeeded · ${executionStats.failedExecutions} failed`,
       trend: 'neutral',
       icon: BarChart3,
       iconColor: 'text-purple-600',

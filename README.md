@@ -1,179 +1,137 @@
 # WorkflowPro
 
-Workflow-automation dashboard **frontend prototype** for presenting automation status, recent workflows, search / filtering, pagination, and integration cards for tools such as Make.com, n8n, and Google Calendar.
+WorkflowPro is a React/Vite workflow-operations prototype with a real server-owned execution boundary for n8n. The current hardening branch supports browser-local workflow management, guarded **Run now** execution through a same-origin API, recoverable local execution history, and dashboard metrics derived from recorded runs.
 
-The current repository is a React / Vite UI prototype using local component state. It does **not** connect to Make.com, n8n, Google Calendar, or a workflow-execution backend in the audited code path.
+It is not yet a multi-user production automation platform: workflow definitions and execution history are still stored in the browser, and a real n8n deployment plus authenticated durable backend are required before production use.
 
-## Product areas
-
-- Dashboard overview
-- Workflow statistics
-- Recent-workflow list
-- Workflow search
-- Status filtering
-- Sorting
-- Pagination
-- Status updates
-- Workflow deletion
-- Integration cards
-- Sidebar / layout shell
-- New-workflow CTA
-
-## Current workflow state
-
-`src/hooks/useWorkflows.ts` initializes local demo workflows such as:
+## Core flow
 
 ```text
-Calendar Sync
-Email Campaign Automation
-Data Backup
-Lead Generation
+Create workflow
+  |
+  | optional n8n workflow ID
+  v
+Activate workflow
+  |
+  v
+Run now
+  |
+  v
+POST /api/workflows/execute
+  |
+  | server-only N8N_BASE_URL / N8N_API_KEY
+  v
+n8n adapter
+  |
+  v
+sanitized succeeded / failed result
+  |
+  v
+local execution history + dashboard metrics
 ```
 
-with statuses including:
+Provider credentials are never accepted from the browser and are not stored in workflow records.
+
+## What works
+
+- create, pause/activate, filter, sort and delete local workflows;
+- persist validated workflow definitions in versioned browser storage;
+- bind an optional n8n workflow ID to a workflow definition;
+- execute active/provider-bound workflows through the same-origin server API;
+- prevent duplicate concurrent runs for the same workflow in the current client session;
+- recover runs left `running` across a reload as interrupted failures instead of leaving infinite loading state;
+- persist a bounded local history of the newest 100 executions;
+- show truthful execution totals and success/failure rate from recorded history;
+- validate workflow IDs and provider configuration server-side;
+- require HTTPS for non-local n8n endpoints;
+- enforce a 15-second provider timeout and sanitized errors;
+- keep server responses `no-store` and avoid leaking provider bodies or API keys;
+- fail cleanly on browser/server network errors.
+
+The Make.com, n8n and Google Calendar integration cards remain product/demo surfaces; they are not claims of active OAuth connections.
+
+## Current product boundary
+
+Workflow definitions and run history use browser `localStorage`. That makes the current release useful as a verifiable single-browser prototype, but it does **not** provide:
+
+- authenticated users or workspaces;
+- shared/multi-device workflow state;
+- server-durable execution history;
+- provider job polling/webhook reconciliation;
+- retries/backoff or idempotent job orchestration;
+- scheduling/trigger lifecycle;
+- production observability or audit logs;
+- verified live n8n execution without real server credentials.
+
+Those capabilities should be implemented on a durable authenticated backend rather than simulated in client state.
+
+## n8n server configuration
+
+Copy the safe template and provide real values only in the server environment:
+
+```bash
+cp .env.example .env
+```
+
+Required server variables:
 
 ```text
-active
-error
-paused
+N8N_BASE_URL=https://your-n8n.example.com
+N8N_API_KEY=...
 ```
 
-Updates and deletion operate only on React state.
+Never expose the API key through `VITE_*` variables or browser code.
 
-Refreshing the page resets the current workflow list unless another persistence layer is added.
+The selected n8n deployment's exact execution endpoint/auth semantics must still be verified against the real provider before production promotion.
 
-## “New Workflow” boundary
-
-The dashboard displays a prominent **New Workflow** button, and `useWorkflows()` includes an `addWorkflow()` helper, but the current top-level dashboard button is not shown wired to a complete workflow-builder / save flow in the audited application path.
-
-Do not describe this repository as a functioning automation builder or execution engine without validating that end-to-end creation flow.
-
-## Integration cards are demo state
-
-`useIntegrations.ts` currently defines local records for:
-
-```text
-Make.com
-n8n
-Google Calendar
-```
-
-with statuses such as:
-
-```text
-Connected
-5 minutes ago
-10 minutes ago
-1 hour ago
-```
-
-Those values are hard-coded UI state.
-
-The package contains no Make.com SDK, n8n API client, Google Calendar OAuth integration, backend credential store, or webhook infrastructure.
-
-Therefore the current integration cards are **product concepts**, not live connections.
-
-## Intended architecture
-
-A real WorkflowPro backend could separate workflow definition from execution:
-
-```text
-workflow UI
-    |
-    v
-workflow API / database
-    |
-    +-- trigger definition
-    +-- step graph
-    +-- credentials / secrets
-    +-- execution status
-    +-- run history
-    |
-    v
-integration adapters
-    |
-    +-- n8n
-    +-- Make.com
-    +-- Google Calendar
-    `-- other services
-```
-
-## Workflow-engine requirements
-
-A production automation product would need explicit behavior for:
-
-- durable workflow definitions;
-- trigger configuration;
-- action configuration;
-- credentials / OAuth;
-- secret isolation;
-- retries;
-- idempotency;
-- execution logs;
-- timeouts;
-- rate limits;
-- scheduling;
-- webhook verification;
-- step dependencies;
-- failure / partial-success behavior;
-- versioning;
-- audit history.
-
-None of those runtime semantics should be inferred from dashboard status cards alone.
-
-## Tech stack
+## Stack
 
 - React 18
 - TypeScript
-- Vite 5
+- Vite 8.3.0
 - Tailwind CSS
 - Lucide React
+- Vitest 5.0.1
+- ESLint 9 compatibility line with zero-warning CI
+- GitHub Actions on Node 22
+- Vercel-style server function under `api/workflows/execute.ts`
 
-The current package intentionally remains small and contains no external automation-platform SDKs.
+## Development
 
-## Local development
-
-### Requirements
-
-- Node.js 18+
-- npm
-
-### Install
+Requirements: Node.js 22 and npm.
 
 ```bash
 git clone https://github.com/shikakker/WorkflowPro.git
 cd WorkflowPro
-npm install
-```
-
-Run:
-
-```bash
+npm ci
 npm run dev
 ```
 
-Build / lint / preview:
+Verification:
 
 ```bash
+npm test
+npm run typecheck
 npm run lint
 npm run build
-npm run preview
+npm audit --omit=dev --audit-level=high
+npm audit --audit-level=high
 ```
 
-## StackBlitz
+Or run the local code checks together:
 
-```text
-https://stackblitz.com/~/github.com/shikakker/WorkflowPro
+```bash
+npm run check
 ```
 
-## Current status
+Permanent GitHub CI is read-only and blocks on clean install, production audit, full dependency audit, tests, typecheck, zero-warning lint and production build.
 
-**Functional workflow-management dashboard prototype using local demo state.** Search, filters, sorting, pagination, workflow status changes, deletion, stats, and integration presentation are implemented. Persistent workflows, real integrations, authentication, execution, scheduling, and automation credentials are not represented by the current repository.
+## Deployment
+
+The connected Vercel team currently exposes no project named `WorkflowPro`, `workflowpro` or `workflow-pro`, so this branch does not claim an exact-head hosted preview. A canonical Vercel project must be linked before browser/runtime verification can be completed.
+
+A plain static Vite host is not sufficient for the complete execution flow because `/api/workflows/execute` requires a server/serverless runtime with access to the server-only n8n environment variables.
 
 ## Product intent
 
-The project explores the operations layer around automation: users need a fast way to understand which workflows are healthy, which are failing, what changed recently, and which external systems are connected. The next engineering step is connecting the UI to a durable workflow / execution model rather than adding more static integration cards.
-
-## License
-
-See repository files for licensing information.
+WorkflowPro explores the operations layer around automation: users need to see what workflows exist, run a configured workflow without exposing provider credentials, understand whether it succeeded, and recover from failures. The next architectural step is durable authenticated server storage and a verified provider job lifecycle, not more simulated integration cards.

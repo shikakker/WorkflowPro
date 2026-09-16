@@ -6,14 +6,19 @@ export async function requestWorkflowExecution(
   request: N8nExecutionRequest,
   fetcher: Fetcher = fetch,
 ): Promise<WorkflowExecutionResult> {
-  const response = await fetcher('/api/workflows/execute', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      workflowId: request.workflowId,
-      payload: request.payload ?? {},
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetcher('/api/workflows/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workflowId: request.workflowId,
+        payload: request.payload ?? {},
+      }),
+    });
+  } catch {
+    return { status: 'failed', error: 'Execution service is unavailable' };
+  }
 
   const body = (await response.json().catch(() => ({}))) as Partial<WorkflowExecutionResult> & {
     error?: string;

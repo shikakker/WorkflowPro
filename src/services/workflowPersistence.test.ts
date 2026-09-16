@@ -14,18 +14,19 @@ function memoryStorage(seed: Record<string, string> = {}) {
   };
 }
 
-const workflow: Workflow = {
+const workflow = {
   id: 'wf-1',
   name: 'Lead intake',
   description: 'Capture and route leads',
   status: 'active',
+  providerWorkflowId: 'provider-wf-17',
   steps: [],
   createdBy: 'local-user',
   updatedAt: new Date('2026-09-11T00:00:00.000Z'),
-};
+} satisfies Workflow;
 
 describe('workflow persistence', () => {
-  it('round-trips workflow dates as Date instances', () => {
+  it('round-trips workflow dates and provider execution binding', () => {
     const storage = memoryStorage();
     saveWorkflows(storage, [workflow]);
 
@@ -33,6 +34,7 @@ describe('workflow persistence', () => {
     expect(restored).toHaveLength(1);
     expect(restored[0].updatedAt).toBeInstanceOf(Date);
     expect(restored[0].updatedAt.toISOString()).toBe('2026-09-11T00:00:00.000Z');
+    expect(restored[0].providerWorkflowId).toBe('provider-wf-17');
   });
 
   it('fails closed to the supplied fallback when persisted JSON is corrupt', () => {
@@ -49,5 +51,19 @@ describe('workflow persistence', () => {
       ]),
     });
     expect(loadWorkflows(storage, [])).toHaveLength(1);
+  });
+
+  it('drops invalid provider workflow ids instead of trusting arbitrary persisted values', () => {
+    const storage = memoryStorage({
+      'workflowpro.workflows.v1': JSON.stringify([
+        {
+          ...workflow,
+          providerWorkflowId: 42,
+          updatedAt: workflow.updatedAt.toISOString(),
+        },
+      ]),
+    });
+
+    expect(loadWorkflows(storage, [workflow])).toEqual([]);
   });
 });

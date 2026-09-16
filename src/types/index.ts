@@ -18,6 +18,7 @@ export interface Workflow {
   name: string;
   description: string;
   status: 'active' | 'paused' | 'error';
+  providerWorkflowId?: string;
   steps: WorkflowStep[];
   createdBy: string;
   updatedAt: Date;

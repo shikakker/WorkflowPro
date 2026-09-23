@@ -102,3 +102,15 @@ Hosting/provider verification:
 3. binding/identifying the canonical Vercel project for exact-head hosted browser/runtime verification.
 
 Next action when those inputs exist: persist execution jobs server-side with idempotency/retry/reconciliation, run a real builder → execute → result E2E, verify hosted responsive/error states and runtime logs, then request explicit approval before production promotion.
+
+## 2026-09-23 P0/P1 — production execution fail-closed
+
+- Runtime/config head `e6881db70f2cfaaba43ef5c8444061830629cb36`.
+- Production n8n execution is now disabled by default unless `WORKFLOWPRO_ALLOW_PUBLIC_EXECUTION=true` is explicitly set.
+- Even after explicit opt-in, production requests must carry a same-origin browser `Origin`; origin-less/cross-site requests fail before n8n configuration/provider work.
+- `.env.example` documents that the opt-in is unsafe until an authenticated ownership layer exists.
+- Exact-source policy/regression verification: PASS.
+- GitHub Verify run `35803512069` was still in progress at this checkpoint.
+- No canonical WorkflowPro Vercel project is present in the connected team.
+
+Status: **PARTIAL** pending authenticated durable ownership, provider smoke and hosted binding. Keep Draft; no n8n execution, merge or production promotion.

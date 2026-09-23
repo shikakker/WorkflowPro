@@ -18,6 +18,7 @@ export interface Workflow {
   name: string;
   description: string;
   status: 'active' | 'paused' | 'error';
+  providerWorkflowId?: string;
   steps: WorkflowStep[];
   createdBy: string;
   updatedAt: Date;
@@ -27,6 +28,6 @@ export interface WorkflowStep {
   id: string;
   type: 'trigger' | 'action' | 'condition';
   service: string;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   position: { x: number; y: number };
 }

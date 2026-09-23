@@ -3,6 +3,7 @@ import { executeN8nWorkflow } from '../../src/services/workflowExecution';
 type RequestLike = {
   method?: string;
   body?: unknown;
+  headers?: Record<string, string | string[] | undefined>;
 };
 
 type ResponseLike = {
@@ -14,6 +15,30 @@ type ResponseLike = {
 function send(res: ResponseLike, status: number, body: unknown) {
   res.setHeader('Cache-Control', 'no-store');
   return res.status(status).json(body);
+}
+
+function firstHeader(req: RequestLike, name: string) {
+  const raw = req.headers?.[name.toLowerCase()];
+  if (Array.isArray(raw)) return raw[0] || '';
+  return raw || '';
+}
+
+function requestIsSameOrigin(req: RequestLike) {
+  const fetchSite = firstHeader(req, 'sec-fetch-site').trim().toLowerCase();
+  if (fetchSite === 'cross-site') return false;
+
+  const origin = firstHeader(req, 'origin').trim();
+  if (!origin) return process.env.NODE_ENV !== 'production';
+
+  const forwardedHost = firstHeader(req, 'x-forwarded-host').split(',', 1)[0].trim();
+  const host = forwardedHost || firstHeader(req, 'host').trim();
+  if (!host) return false;
+
+  try {
+    return new URL(origin).host.toLowerCase() === host.toLowerCase();
+  } catch {
+    return false;
+  }
 }
 
 function parseRequest(body: unknown) {
@@ -31,6 +56,17 @@ function parseRequest(body: unknown) {
 export default async function handler(req: RequestLike, res: ResponseLike) {
   if (req.method !== 'POST') {
     return send(res, 405, { error: 'Method not allowed' });
+  }
+
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.WORKFLOWPRO_ALLOW_PUBLIC_EXECUTION !== 'true'
+  ) {
+    return send(res, 503, { error: 'Workflow execution is disabled in production' });
+  }
+
+  if (!requestIsSameOrigin(req)) {
+    return send(res, 403, { error: 'Cross-origin workflow execution is not allowed' });
   }
 
   const request = parseRequest(req.body);

@@ -32,6 +32,7 @@ afterEach(() => {
   delete process.env.N8N_BASE_URL;
   delete process.env.N8N_API_KEY;
   delete process.env.WORKFLOWPRO_ALLOW_PUBLIC_EXECUTION;
+  delete process.env.WORKFLOWPRO_ALLOWED_N8N_WORKFLOW_IDS;
   process.env.NODE_ENV = originalNodeEnv;
   vi.restoreAllMocks();
 });

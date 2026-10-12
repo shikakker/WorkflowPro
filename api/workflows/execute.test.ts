@@ -98,6 +98,35 @@ describe('production execution boundary', () => {
     expect(capture.body).toEqual({ error: 'Cross-origin workflow execution is not allowed' });
   });
 
+
+  it('requires explicit server allowlist before executing a configured workflow', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.WORKFLOWPRO_ALLOW_PUBLIC_EXECUTION = 'true';
+    process.env.N8N_BASE_URL = 'https://n8n.example.test';
+    process.env.N8N_API_KEY = 'server-secret';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const input = {
+      method: 'POST',
+      headers: { host: 'workflow.example', origin: 'https://workflow.example' },
+      body: { workflowId: 'admin-unlisted', payload: {} },
+    };
+    const { response, capture } = createResponse();
+    await handler(input, response);
+    expect(capture.statusCode).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    process.env.WORKFLOWPRO_ALLOWED_N8N_WORKFLOW_IDS = 'public-leads, approved-task';
+    const { response: allowedRes, capture: allowedCapture } = createResponse();
+    await handler(input, allowedRes);
+    expect(allowedCapture.statusCode).toBe(403);
+
+    const { response: configuredRes, capture: configuredCapture } = createResponse();
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ executionId: 'exec-demo' }), { status: 200 }));
+    await handler({ ...input, body: { workflowId: 'public-leads', payload: {} } }, configuredRes);
+    expect(configuredCapture.statusCode).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('refuses spoofed forwarded Host and same-site requests before any n8n action', async () => {
     process.env.NODE_ENV = 'production';
     process.env.WORKFLOWPRO_ALLOW_PUBLIC_EXECUTION = 'true';

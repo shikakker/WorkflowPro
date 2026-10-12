@@ -36,7 +36,7 @@ function requestIsSameOrigin(req: RequestLike) {
 
   try {
     const parsed = new URL(origin);
-    const local = /^(?:localhost|127\\.0\\.0\\.1|\\[::1\\])(?::\\d+)?$/i.test(host);
+    const local = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host);
     return parsed.origin === origin
       && parsed.host.toLowerCase() === host.toLowerCase()
       && parsed.protocol === (local ? 'http:' : 'https:');

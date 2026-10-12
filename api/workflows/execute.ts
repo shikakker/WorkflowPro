@@ -78,6 +78,20 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
     return send(res, 400, { error: 'A valid workflow id is required' });
   }
 
+  // Public pilot mode must never let visitors execute arbitrary privileged
+  // n8n workflows by guessing another valid ID. The operator owns this allowlist.
+  if (process.env.NODE_ENV === 'production') {
+    const permitted = new Set(
+      (process.env.WORKFLOWPRO_ALLOWED_N8N_WORKFLOW_IDS || '')
+        .split(',')
+        .map(id => id.trim())
+        .filter(Boolean),
+    );
+    if (!permitted.has(request.workflowId)) {
+      return send(res, 403, { error: 'Workflow is not approved for execution' });
+    }
+  }
+
   const baseUrl = process.env.N8N_BASE_URL?.trim() || '';
   const apiKey = process.env.N8N_API_KEY?.trim() || '';
   if (!baseUrl || !apiKey) {

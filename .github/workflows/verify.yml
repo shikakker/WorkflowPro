@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  audit:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -24,7 +24,29 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Tooling dependency audit
         run: npm audit --audit-level=high
+
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - run: npm test
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
+
+  # Preserve the existing required verify check as a fail-closed aggregate.
+  verify:
+    runs-on: ubuntu-latest
+    needs: [audit, quality]
+    if: always()
+    steps:
+      - name: Require clean audit and verified build
+        run: |
+          test "${{ needs.audit.result }}" = success
+          test "${{ needs.quality.result }}" = success

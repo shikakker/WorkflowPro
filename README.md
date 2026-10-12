@@ -126,7 +126,7 @@ Or run the local code checks together:
 npm run check
 ```
 
-Permanent GitHub CI is read-only and blocks on clean install, production audit, full dependency audit, tests, typecheck, zero-warning lint and production build.
+Permanent GitHub CI is read-only and runs dependency audits and application checks as **separate jobs**, with an existing `verify` aggregate that requires both jobs to pass. On 12 October 2026, commit `38f2505` passed `npm ci`, **29/29 tests**, TypeScript, zero-warning ESLint and the Vite production build. The **release gate remains failed** because the full tooling audit reports 6 high and 2 moderate transitive advisories (Tailwind 3 dependency tree / source-map-js). The production dependency audit passes. Do not merge while this security gate is unresolved; preserve a synchronized audited lockfile and real dependency-backed checks.
 
 ## Deployment
 

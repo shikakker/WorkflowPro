@@ -97,4 +97,24 @@ describe('production execution boundary', () => {
     expect(capture.statusCode).toBe(403);
     expect(capture.body).toEqual({ error: 'Cross-origin workflow execution is not allowed' });
   });
+
+  it('refuses spoofed forwarded Host and same-site requests before any n8n action', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.WORKFLOWPRO_ALLOW_PUBLIC_EXECUTION = 'true';
+    process.env.N8N_BASE_URL = 'https://n8n.example.test';
+    process.env.N8N_API_KEY = 'server-secret';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    for (const headers of [
+      { host: 'n8n-host.example', 'x-forwarded-host': 'workflow.example', origin: 'https://workflow.example' },
+      { host: 'workflow.example', origin: 'https://workflow.example', 'sec-fetch-site': 'same-site' },
+      { host: 'workflow.example', origin: 'http://workflow.example' },
+      { host: 'workflow.example', origin: 'https://workflow.example/path' },
+    ]) {
+      const { response, capture } = createResponse();
+      await handler({ method: 'POST', headers, body: { workflowId: '42', payload: {} } }, response);
+      expect(capture.statusCode).toBe(403);
+    }
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 });

@@ -25,17 +25,21 @@ function firstHeader(req: RequestLike, name: string) {
 
 function requestIsSameOrigin(req: RequestLike) {
   const fetchSite = firstHeader(req, 'sec-fetch-site').trim().toLowerCase();
-  if (fetchSite === 'cross-site') return false;
+  if (fetchSite && fetchSite !== 'same-origin') return false;
 
   const origin = firstHeader(req, 'origin').trim();
   if (!origin) return process.env.NODE_ENV !== 'production';
 
-  const forwardedHost = firstHeader(req, 'x-forwarded-host').split(',', 1)[0].trim();
-  const host = forwardedHost || firstHeader(req, 'host').trim();
-  if (!host) return false;
+  // Do not let untrusted X-Forwarded-Host redefine our own authority.
+  const host = firstHeader(req, 'host').trim();
+  if (!host || host.includes(',') || host.includes('@')) return false;
 
   try {
-    return new URL(origin).host.toLowerCase() === host.toLowerCase();
+    const parsed = new URL(origin);
+    const local = /^(?:localhost|127\\.0\\.0\\.1|\\[::1\\])(?::\\d+)?$/i.test(host);
+    return parsed.origin === origin
+      && parsed.host.toLowerCase() === host.toLowerCase()
+      && parsed.protocol === (local ? 'http:' : 'https:');
   } catch {
     return false;
   }

@@ -82,6 +82,8 @@ N8N_API_KEY=...
 
 Never expose the API key through `VITE_*` variables or browser code.
 
+Public execution is **disabled by default**. An operator who intentionally sets `WORKFLOWPRO_ALLOW_PUBLIC_EXECUTION=true` in production must also configure `WORKFLOWPRO_ALLOWED_N8N_WORKFLOW_IDS` with exact approved comma-separated n8n workflow IDs. Arbitrary IDs remain denied. Browser requests require canonical HTTPS Origin equal to actual Host; `X-Forwarded-Host`, same-site Fetch Metadata and missing Origin cannot authorize execution. These restrictions are only a safeguard; they do not replace authenticated user/workflow ownership or a distributed abuse budget.
+
 The selected n8n deployment's exact execution endpoint/auth semantics must still be verified against the real provider before production promotion.
 
 ## Stack

@@ -78,16 +78,29 @@ export async function executeN8nWorkflow(
       };
     }
 
-    const payload = (await response.json().catch(() => ({}))) as {
-      executionId?: string | number;
-      id?: string | number;
-    };
-    const providerExecutionId = payload.executionId ?? payload.id;
+    // HTTP 2xx alone is not evidence that n8n accepted and created a run.
+    // Invalid/missing execution identifiers must remain visible failures.
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      return { status: 'failed', error: 'Provider response was invalid' };
+    }
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return { status: 'failed', error: 'Provider response was invalid' };
+    }
+    const record = payload as Record<string, unknown>;
+    const rawId = record.executionId ?? record.id;
+    const providerExecutionId = typeof rawId === 'string'
+      ? rawId.trim()
+      : typeof rawId === 'number' && Number.isSafeInteger(rawId) && rawId >= 0
+        ? String(rawId)
+        : '';
+    if (!providerExecutionId || providerExecutionId.length > 256) {
+      return { status: 'failed', error: 'Provider did not return a valid execution id' };
+    }
 
-    return {
-      status: 'succeeded',
-      providerExecutionId: providerExecutionId == null ? undefined : String(providerExecutionId),
-    };
+    return { status: 'succeeded', providerExecutionId };
   } catch (error) {
     const timedOut = error instanceof Error && error.name === 'AbortError';
     return {

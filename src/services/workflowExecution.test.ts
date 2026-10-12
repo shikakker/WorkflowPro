@@ -18,6 +18,21 @@ describe('n8n execution boundary', () => {
     expect(result.providerExecutionId).toBe('exec-1');
   });
 
+  it('does not fabricate success when provider returns invalid JSON or omits an execution id', async () => {
+    for (const body of ['not-json', '{}', '{"executionId":""}', '{"executionId":{"unexpected":"object"}}']) {
+      const fetcher = async () => new Response(body, { status: 200 });
+      const result = await executeN8nWorkflow(
+        { workflowId: '42', payload: { example: true } },
+        { baseUrl: 'https://n8n.example.test', apiKey: 'server-secret' },
+        fetcher,
+      );
+      expect(result.status).toBe('failed');
+      expect(result.providerExecutionId).toBeUndefined();
+      expect(result.error).toMatch(/provider/i);
+      expect(JSON.stringify(result)).not.toContain('server-secret');
+    }
+  });
+
   it('maps provider failures to failed state without leaking credentials', async () => {
     const fetcher = async () => new Response('provider exploded', { status: 500 });
     const result = await executeN8nWorkflow(

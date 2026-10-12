@@ -114,3 +114,10 @@ Next action when those inputs exist: persist execution jobs server-side with ide
 - No canonical WorkflowPro Vercel project is present in the connected team.
 
 Status: **PARTIAL** pending authenticated durable ownership, provider smoke and hosted binding. Keep Draft; no n8n execution, merge or production promotion.
+
+## 2026-10-12 — public n8n execution authority hardening
+
+- **P0:** production-pilot `POST /api/workflows/execute` previously allowed inbound `X-Forwarded-Host` to redefine trusted host when comparing Origin. `same-site` requests passed the Fetch Metadata check. Test-first `api/workflows/execute.test.ts` now rejects forwarded host spoofing, canonical-Origin mismatches and same-site requests before invoking n8n.
+- **P0:** an operator setting `WORKFLOWPRO_ALLOW_PUBLIC_EXECUTION=true` could let visitors submit any guessed n8n workflow ID, not just the demo workflow. New server-only `WORKFLOWPRO_ALLOWED_N8N_WORKFLOW_IDS` exact allowlist denies unapproved IDs with HTTP 403 before reading provider credentials or issuing fetch. The safe default remains disabled. `.env.example` and README were updated.
+- **Verification:** source saved and read back from GitHub. Isolated transformed V8 evaluation of exact `api/workflows/execute.ts` origin helper: **9/9 targeted trust/order checks PASS** on blob `d2bd27f6cb58e628693aa2d7ff42299a96751382`. Full Vitest, TypeScript, Vite build, browser/n8n E2E and Vercel preview on this head **NOT VERIFIED**; prior green CI belongs to an older SHA. This does not replace authenticated user/workflow ownership and distributed quotas.
+- **Status:** PARTIAL, existing Draft [PR #2](https://github.com/shikakker/WorkflowPro/pull/2) remains unmerged; no n8n execution, secrets or production changes.

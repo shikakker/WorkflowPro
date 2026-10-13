@@ -148,3 +148,36 @@ describe('production execution boundary', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
+
+
+describe('execution payload cost/abuse boundary', () => {
+  it('rejects oversized JSON payloads before contacting n8n', async () => {
+    process.env.N8N_BASE_URL = 'https://n8n.example.test';
+    process.env.N8N_API_KEY = 'server-secret';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const { response, capture } = createResponse();
+    await handler({
+      method: 'POST',
+      body: { workflowId: '42', payload: { message: 'x'.repeat(100_000) } },
+    }, response);
+    expect(capture.statusCode).toBe(413);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects dangerous JSON structures and invalid workflow identifiers', async () => {
+    process.env.N8N_BASE_URL = 'https://n8n.example.test';
+    process.env.N8N_API_KEY = 'server-secret';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    for (const body of [
+      { workflowId: '../administrator', payload: {} },
+      { workflowId: '42', payload: { bad: BigInt(42) } },
+      { workflowId: '42', payload: { bad: () => 'hidden' } },
+      { workflowId: '42', payload: { bad: Number.POSITIVE_INFINITY } },
+    ]) {
+      const { response, capture } = createResponse();
+      await handler({ method: 'POST', body }, response);
+      expect(capture.statusCode).toBe(400);
+    }
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});

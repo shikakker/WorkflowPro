@@ -1,4 +1,5 @@
 import { executeN8nWorkflow } from '../../src/services/workflowExecution';
+import { parseSafeWorkflowRequest, WorkflowPayloadTooLargeError } from '../../src/services/workflowRequestPolicy';
 
 type RequestLike = {
   method?: string;
@@ -45,17 +46,6 @@ function requestIsSameOrigin(req: RequestLike) {
   }
 }
 
-function parseRequest(body: unknown) {
-  if (!body || typeof body !== 'object') return null;
-  const input = body as Record<string, unknown>;
-  const workflowId = typeof input.workflowId === 'string' ? input.workflowId.trim() : '';
-  const payload = input.payload && typeof input.payload === 'object' && !Array.isArray(input.payload)
-    ? input.payload as Record<string, unknown>
-    : {};
-
-  if (!workflowId || workflowId.length > 200) return null;
-  return { workflowId, payload };
-}
 
 export default async function handler(req: RequestLike, res: ResponseLike) {
   if (req.method !== 'POST') {
@@ -73,9 +63,17 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
     return send(res, 403, { error: 'Cross-origin workflow execution is not allowed' });
   }
 
-  const request = parseRequest(req.body);
+  let request;
+  try {
+    request = parseSafeWorkflowRequest(req.body);
+  } catch (error) {
+    if (error instanceof WorkflowPayloadTooLargeError) {
+      return send(res, 413, { error: 'Workflow payload is too large' });
+    }
+    return send(res, 400, { error: 'Invalid workflow payload' });
+  }
   if (!request) {
-    return send(res, 400, { error: 'A valid workflow id is required' });
+    return send(res, 400, { error: 'A valid workflow id and JSON payload are required' });
   }
 
   // Public pilot mode must never let visitors execute arbitrary privileged

@@ -1,0 +1,149 @@
+# WorkflowPro Product Completion Status
+
+Product family: WorkflowPro automation dashboard / n8n execution prototype.
+
+Canonical repository: `shikakker/WorkflowPro`.
+
+Completion branch: `portfolio-improvements-2026-08`.
+
+PR: #2 — Draft; do not merge automatically.
+
+Overall status: **PARTIAL — engineering/release gates are green for the current single-browser scope; live n8n E2E, durable authenticated backend and canonical Vercel binding remain external release boundaries.**
+
+## Product definition
+
+**User → Problem → Core action → Value → Outcome**
+
+Automation builder/operator → needs a clear place to define and run workflows without exposing provider credentials in the browser → creates a workflow, binds a provider workflow ID, activates it and executes through a same-origin server boundary → receives a sanitized result recorded in local history → can see truthful run state and success metrics while provider secrets remain server-owned.
+
+## T01–T10 — Core tasks
+
+| ID | Status | Task / verification |
+| --- | --- | --- |
+| T01 | DONE | Deterministic Node 22 `npm ci` release gate. |
+| T02 | DONE | Tests, typecheck, zero-warning lint and production build are blocking CI steps. |
+| T03 | DONE | n8n credentials remain server-owned behind `/api/workflows/execute`. |
+| T04 | DONE | Provider adapter validates workflow IDs, HTTPS outside localhost, timeout and sanitized failures. |
+| T05 | DONE | Workflow definitions persist locally with schema validation, Date restoration and corrupt-data fallback. |
+| T06 | DONE | Dashboard owns one shared collection for create/status/delete behavior. |
+| T07 | DONE | Workflows can persist an optional provider workflow ID without storing provider credentials. |
+| T08 | DONE | Active provider-bound workflows expose guarded `Run now`; duplicate in-session runs are rejected. |
+| T09 | DONE | Bounded local execution history survives reload, recovers interrupted runs, and drives truthful execution/success metrics. |
+| T10 | BLOCKED | Live n8n E2E requires a real `N8N_BASE_URL` + `N8N_API_KEY` and verification of the selected provider's production execution contract. |
+
+## I01–I10 — Improvements
+
+| ID | Status | Improvement |
+| --- | --- | --- |
+| I01 | DONE | Same-origin execution seam prevents browser-owned n8n credentials. |
+| I02 | DONE | Request validation and sanitized provider/network errors. |
+| I03 | DONE | Local workflow persistence rejects malformed records safely. |
+| I04 | DONE | Execution history is bounded to 100 records and restores Date fields safely. |
+| I05 | DONE | Interrupted `running` records recover as explicit failures instead of infinite loading state. |
+| I06 | DONE | Shared state removes duplicated workflow collections. |
+| I07 | DONE | Dashboard execution totals and success rate derive from recorded events instead of mock values. |
+| I08 | DONE | Production and full tooling dependency audits both block permanent CI; current verified graph has 0 audit vulnerabilities. |
+| I09 | BLOCKED | No canonical Vercel project is visible/bound in the connected team for exact-head browser/runtime verification. |
+| I10 | DEFERRED WITH REASON | Production observability belongs with the selected durable execution/backend topology. |
+
+## F01–F10 — Product features / boundaries
+
+| ID | Status | Feature / boundary |
+| --- | --- | --- |
+| F01 | DONE | Create local workflow. |
+| F02 | DONE | Persist and restore local workflows. |
+| F03 | DONE | Pause/activate/error status management. |
+| F04 | DONE | Delete workflow from the shared collection. |
+| F05 | DONE | Server-owned n8n execution adapter boundary. |
+| F06 | DONE | Provider workflow ID binding and guarded `Run now`. |
+| F07 | DONE | Recoverable provider/API/network failure mapping. |
+| F08 | DONE | Local execution lifecycle/history plus truthful execution/success metrics. |
+| F09 | DEFERRED WITH REASON | Authenticated multi-user workflow ownership and shared history require durable identity/storage. |
+| F10 | DEFERRED WITH REASON | Durable provider job retries/backoff/idempotency/reconciliation require the selected production backend and n8n contract. |
+
+## Verification evidence
+
+Test-first evidence:
+
+- execution-history RED run `35038740425` failed at tests because `workflowExecutionHistory` intentionally did not exist yet while the previous suites passed;
+- the execution client network-failure regression was added before the client catch/fail-closed implementation;
+- subsequent verification covers provider binding, local history, interrupted-run recovery, UI execution wiring and truthful stats.
+
+Dependency/security evidence:
+
+- initial permanent full-tooling audit exposed dev/build-chain advisories while production audit remained clean;
+- guarded dependency refresh run `35039207670` proved Vite 8.3.0 / Vitest 5.0.1 / maintained lint tooling could reach **0 vulnerabilities**, 24 tests PASS, typecheck PASS, lint PASS and build PASS; only its first push was rejected because the branch advanced concurrently;
+- rerun `35039352216` completed the same audited migration on the current branch and committed the verified package state;
+- the temporary write-capable dependency workflow was then removed; permanent `Verify` is read-only.
+
+Current code checkpoint before documentation-only commits: `0df437ec80d7eb28d8accc94bd7cd3afc7b9e9a7`.
+
+- `npm ci`: PASS.
+- `npm audit --omit=dev --audit-level=high`: PASS.
+- `npm audit --audit-level=high`: PASS / 0 vulnerabilities on the migrated dependency graph.
+- tests: PASS, including workflow execution/history/UI contracts.
+- TypeScript: PASS.
+- ESLint with `--max-warnings=0`: PASS.
+- Vite production build: PASS.
+
+Hosting/provider verification:
+
+- `.env.example` documents server-only `N8N_BASE_URL` and `N8N_API_KEY` without secrets.
+- Connected Vercel team inventory exposes no obvious WorkflowPro project; direct project lookups for `workflowpro` and `workflow-pro` both return 404.
+- No production n8n credentials were available or used, so no external workflow was executed.
+- No merge, production promotion, billing action, secret mutation or destructive operation was performed.
+
+## Remaining blockers / next action
+
+**BLOCKED ONLY BY:**
+
+1. a real n8n server endpoint/API credential pair and confirmation of the intended production execution contract;
+2. selection/provisioning of the durable auth/data backend for multi-user workflow ownership and server-durable job history;
+3. binding/identifying the canonical Vercel project for exact-head hosted browser/runtime verification.
+
+Next action when those inputs exist: persist execution jobs server-side with idempotency/retry/reconciliation, run a real builder → execute → result E2E, verify hosted responsive/error states and runtime logs, then request explicit approval before production promotion.
+
+## 2026-09-23 P0/P1 — production execution fail-closed
+
+- Runtime/config head `e6881db70f2cfaaba43ef5c8444061830629cb36`.
+- Production n8n execution is now disabled by default unless `WORKFLOWPRO_ALLOW_PUBLIC_EXECUTION=true` is explicitly set.
+- Even after explicit opt-in, production requests must carry a same-origin browser `Origin`; origin-less/cross-site requests fail before n8n configuration/provider work.
+- `.env.example` documents that the opt-in is unsafe until an authenticated ownership layer exists.
+- Exact-source policy/regression verification: PASS.
+- GitHub Verify run `35803512069` was still in progress at this checkpoint.
+- No canonical WorkflowPro Vercel project is present in the connected team.
+
+Status: **PARTIAL** pending authenticated durable ownership, provider smoke and hosted binding. Keep Draft; no n8n execution, merge or production promotion.
+
+## 2026-10-12 — public n8n execution authority hardening
+
+- **P0:** production-pilot `POST /api/workflows/execute` previously allowed inbound `X-Forwarded-Host` to redefine trusted host when comparing Origin. `same-site` requests passed the Fetch Metadata check. Test-first `api/workflows/execute.test.ts` now rejects forwarded host spoofing, canonical-Origin mismatches and same-site requests before invoking n8n.
+- **P0:** an operator setting `WORKFLOWPRO_ALLOW_PUBLIC_EXECUTION=true` could let visitors submit any guessed n8n workflow ID, not just the demo workflow. New server-only `WORKFLOWPRO_ALLOWED_N8N_WORKFLOW_IDS` exact allowlist denies unapproved IDs with HTTP 403 before reading provider credentials or issuing fetch. The safe default remains disabled. `.env.example` and README were updated.
+- **Verification:** source saved and read back from GitHub. Isolated transformed V8 evaluation of exact `api/workflows/execute.ts` origin helper: **9/9 targeted trust/order checks PASS** on blob `d2bd27f6cb58e628693aa2d7ff42299a96751382`. Full Vitest, TypeScript, Vite build, browser/n8n E2E and Vercel preview on this head **NOT VERIFIED**; prior green CI belongs to an older SHA. This does not replace authenticated user/workflow ownership and distributed quotas.
+- **Status:** PARTIAL, existing Draft [PR #2](https://github.com/shikakker/WorkflowPro/pull/2) remains unmerged; no n8n execution, secrets or production changes.
+
+## 2026-10-12 — exact-head GitHub code execution and advisory gate
+
+- **Root cause reproduced from job logs:** prior sequential Verify run `38279562327` installed 292 packages and passed production `npm audit --omit=dev --audit-level=high`, but full tooling audit stopped the job with 6 HIGH + 2 MODERATE advisories (braces / Tailwind 3 dependency chain, postcss-selector-parser, source-map-js). Tests were skipped because the audit failed first.
+- **Fix:** `.github/workflows/verify.yml` now runs independent read-only `audit` and `quality` jobs, with the existing `verify` check as a fail-closed aggregate requiring BOTH to pass. Audit has not been suppressed/disabled and neither was a vulnerable dependency hidden. This preserves meaningful build evidence even when the dependency audit fails.
+- **Actual GitHub Actions evidence** on commit `38f250549744766c1ae69c9d9f0ff309b4d2fb91`, run `38283424842`: `quality` **SUCCESS**: frozen `npm ci`, **29/29 Vitest PASS** (7 files including 6 real workflow API tests), `tsc --noEmit` PASS, ESLint zero-warning PASS and Vite build PASS. `audit`: production dependencies PASS; tooling dependencies **FAIL**. `verify`: correctly **FAIL** due to audit. No green release claim.
+- **Security advisory gate unresolved:** current upstream advisory for `braces@3.0.3` has no published patched release; migration away from Tailwind 3's vulnerable dev-chain must be tested with synchronized package/lockfile and complete CI, not concealed via an audit exception or force-upgrade. `source-map-js` has patched 1.2.2 and `postcss-selector-parser` patched 7.1.6, but those updates need validated dependent lock changes.
+- **Hosted E2E** and canonical Vercel project still unavailable in the connected scope. Overall **PARTIAL**; Draft PR #2, no merge/production/provider execution. Follow-up: atomic tested dependency refresh and complete audit, then live preview provider smoke.
+
+## 2026-10-13 — provider run-id evidence required before success
+
+- **P1 user trust:** `executeN8nWorkflow` previously treated every HTTP 2xx n8n response as `status:'succeeded'`, including malformed JSON, `{}`, empty IDs and object IDs converted to `[object Object]`; this could fabricate successful workflow runs in UI/history.
+- **Test-first:** `src/services/workflowExecution.test.ts` commit `4d771c1` requires a valid execution ID before success.
+- **RED:** exact original GitHub blob `b088900f7341ea3b9cdf9b8ed923c198f2d6bc88` independently matched in Node 22, and the 4 malformed 200 response cases all incorrectly returned succeeded.
+- **GREEN:** `src/services/workflowExecution.ts` commit `000a4e6` validates JSON/object shape and nonempty bounded (<=256) string or safe integer run ID; unknown result reports controlled failed state without leaking API key. GitHub blob `195b069ee824bdb766a3484f5f34842b0231bcf6` matched local runnable source; Node 22 isolated **3/3 PASS** (bad JSON/ID, real IDs, provider 503).
+- **Current-head GitHub Actions run `38310179107`:** read-only **quality SUCCESS**: frozen `npm ci`, Vitest suite, TypeScript, zero-warning lint, Vite production build. **Production npm audit SUCCESS (0 production advisories)**. **Tooling audit FAIL** on 6 high/2 moderate (Tailwind 3 `braces` currently unpatched, `postcss-selector-parser`, `source-map-js`), aggregate verify correctly FAIL. Source-code quality green is **not** complete release success.
+- **Blocked:** audited tooling-chain migration, authorized n8n server and authenticated durable storage, canonical Vercel/browser proof. No real n8n run, user workflows, credentials or production changes. Draft [PR #2](https://github.com/shikakker/WorkflowPro/pull/2) **PARTIAL**.
+
+
+## 2026-10-13 — Batch 12: validate privileged n8n execution payloads
+
+- **P1 execution security/reliability:** `POST /api/workflows/execute` previously accepted arbitrary-sized nested payloads and malformed input, then passed them with privileged server-owned n8n credentials to the provider.
+- **Test-first:** `api/workflows/execute.test.ts` `ef2a15a` adds denial of >32 KiB payload, unsafe workflow IDs, non-JSON types and nonfinite values before `fetch`.
+- **Fix:** `src/services/workflowRequestPolicy.ts` `26d8803` checks workflow IDs, JSON-safe nested data, bounded nesting/arrays/object keys and a UTF-8 32 KiB payload cap (413 on oversize). `api/workflows/execute.ts` `e0b7ffc` now validates before the server-side n8n call.
+- **Focused evidence:** exact Git helper blob `2534ec18aafb9d6b0d96953d7f1a15700011cac6` hash matched standalone Node22; **4/4 executable input tests PASS**. Earlier repository CI had clean install/test/typecheck/lint/build PASS but `npm audit` dev dependency scan FAIL; exact new head comprehensive CI/build/browser and real n8n execution **NOT VERIFIED**. Public production executions remain opt-in plus explicit workflow ID allowlist.
+- **Status:** **PARTIAL**, [Draft PR #2](https://github.com/shikakker/WorkflowPro/pull/2), no n8n jobs executed, secrets inspected, or production promotion.

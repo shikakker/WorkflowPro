@@ -1,6 +1,11 @@
-import { useState } from 'react';
-import { BarChart3, Clock, Workflow, Zap } from 'lucide-react';
-import { LucideIcon } from 'lucide-react';
+import { BarChart3, Clock, Zap } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import type { Workflow } from '../types';
+import { deriveWorkflowStats } from '../services/workflowStats';
+import {
+  deriveExecutionHistoryStats,
+  type WorkflowExecutionRecord,
+} from '../services/workflowExecutionHistory';
 
 export interface Stat {
   title: string;
@@ -11,41 +16,48 @@ export interface Stat {
   iconColor: string;
 }
 
-export function useStats() {
-  const [stats] = useState<Stat[]>([
+export function useStats(workflows: Workflow[], executions: WorkflowExecutionRecord[]) {
+  const snapshot = deriveWorkflowStats(workflows);
+  const executionStats = deriveExecutionHistoryStats(executions);
+
+  const stats: Stat[] = [
     {
       title: 'Active Workflows',
-      value: '24',
-      change: '+4.75%',
-      trend: 'up',
+      value: String(snapshot.activeWorkflows),
+      change: `${snapshot.totalWorkflows} total`,
+      trend: 'neutral',
       icon: Zap,
       iconColor: 'text-indigo-600',
     },
     {
-      title: 'Total Executions',
-      value: '1,429',
-      change: '+12.5%',
-      trend: 'up',
+      title: 'Total Workflows',
+      value: String(snapshot.totalWorkflows),
+      change: 'Local workspace',
+      trend: 'neutral',
       icon: BarChart3,
       iconColor: 'text-green-600',
     },
     {
-      title: 'Active Integrations',
-      value: '8',
-      change: '0',
+      title: 'Total Executions',
+      value: String(executionStats.totalExecutions),
+      change: executionStats.runningExecutions > 0
+        ? `${executionStats.runningExecutions} running`
+        : `${executionStats.completedExecutions} completed`,
       trend: 'neutral',
       icon: Clock,
       iconColor: 'text-blue-600',
     },
     {
       title: 'Success Rate',
-      value: '99.2%',
-      change: '-0.1%',
-      trend: 'down',
+      value: executionStats.successRate === null ? '—' : `${executionStats.successRate}%`,
+      change: executionStats.completedExecutions === 0
+        ? 'No completed runs yet'
+        : `${executionStats.successfulExecutions} succeeded · ${executionStats.failedExecutions} failed`,
+      trend: 'neutral',
       icon: BarChart3,
       iconColor: 'text-purple-600',
     },
-  ]);
+  ];
 
   return { stats };
 }

@@ -1,12 +1,28 @@
 import React from 'react';
-import { useWorkflows } from '../../hooks/useWorkflows';
+import type { Workflow } from '../../types';
+import type { WorkflowExecutionRecord } from '../../services/workflowExecutionHistory';
 import { useWorkflowFilters } from '../../hooks/useWorkflowFilters';
 import { WorkflowItem } from './WorkflowItem';
 import { WorkflowControls } from './WorkflowControls';
 import { Pagination } from '../common/Pagination';
 
-export function RecentWorkflows() {
-  const { workflows, updateWorkflowStatus, deleteWorkflow } = useWorkflows();
+type RecentWorkflowsProps = {
+  workflows: Workflow[];
+  onStatusChange: (id: string, status: Workflow['status']) => void;
+  onDelete: (id: string) => void;
+  onExecute: (workflow: Workflow) => void;
+  executingWorkflowIds: Set<string>;
+  latestExecutionByWorkflow: Map<string, WorkflowExecutionRecord>;
+};
+
+export function RecentWorkflows({
+  workflows,
+  onStatusChange,
+  onDelete,
+  onExecute,
+  executingWorkflowIds,
+  latestExecutionByWorkflow,
+}: RecentWorkflowsProps) {
   const {
     search,
     setSearch,
@@ -26,7 +42,7 @@ export function RecentWorkflows() {
     <div className="bg-white shadow rounded-lg">
       <div className="p-6">
         <h2 className="text-lg font-medium text-gray-900">Recent Workflows</h2>
-        
+
         <div className="mt-4">
           <WorkflowControls
             search={search}
@@ -41,16 +57,25 @@ export function RecentWorkflows() {
         </div>
 
         <div className="mt-6 flow-root">
-          <ul className="-my-5 divide-y divide-gray-200">
-            {paginatedWorkflows.map((workflow) => (
-              <WorkflowItem 
-                key={workflow.id} 
-                workflow={workflow}
-                onStatusChange={updateWorkflowStatus}
-                onDelete={deleteWorkflow}
-              />
-            ))}
-          </ul>
+          {paginatedWorkflows.length === 0 ? (
+            <p className="py-8 text-center text-sm text-gray-500">
+              No workflows match the current filters.
+            </p>
+          ) : (
+            <ul className="-my-5 divide-y divide-gray-200">
+              {paginatedWorkflows.map((workflow) => (
+                <WorkflowItem
+                  key={workflow.id}
+                  workflow={workflow}
+                  onStatusChange={onStatusChange}
+                  onDelete={onDelete}
+                  onExecute={onExecute}
+                  isExecuting={executingWorkflowIds.has(workflow.id)}
+                  latestExecution={latestExecutionByWorkflow.get(workflow.id)}
+                />
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="mt-6">

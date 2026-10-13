@@ -138,3 +138,12 @@ Status: **PARTIAL** pending authenticated durable ownership, provider smoke and 
 - **GREEN:** `src/services/workflowExecution.ts` commit `000a4e6` validates JSON/object shape and nonempty bounded (<=256) string or safe integer run ID; unknown result reports controlled failed state without leaking API key. GitHub blob `195b069ee824bdb766a3484f5f34842b0231bcf6` matched local runnable source; Node 22 isolated **3/3 PASS** (bad JSON/ID, real IDs, provider 503).
 - **Current-head GitHub Actions run `38310179107`:** read-only **quality SUCCESS**: frozen `npm ci`, Vitest suite, TypeScript, zero-warning lint, Vite production build. **Production npm audit SUCCESS (0 production advisories)**. **Tooling audit FAIL** on 6 high/2 moderate (Tailwind 3 `braces` currently unpatched, `postcss-selector-parser`, `source-map-js`), aggregate verify correctly FAIL. Source-code quality green is **not** complete release success.
 - **Blocked:** audited tooling-chain migration, authorized n8n server and authenticated durable storage, canonical Vercel/browser proof. No real n8n run, user workflows, credentials or production changes. Draft [PR #2](https://github.com/shikakker/WorkflowPro/pull/2) **PARTIAL**.
+
+
+## 2026-10-13 — Batch 12: validate privileged n8n execution payloads
+
+- **P1 execution security/reliability:** `POST /api/workflows/execute` previously accepted arbitrary-sized nested payloads and malformed input, then passed them with privileged server-owned n8n credentials to the provider.
+- **Test-first:** `api/workflows/execute.test.ts` `ef2a15a` adds denial of >32 KiB payload, unsafe workflow IDs, non-JSON types and nonfinite values before `fetch`.
+- **Fix:** `src/services/workflowRequestPolicy.ts` `26d8803` checks workflow IDs, JSON-safe nested data, bounded nesting/arrays/object keys and a UTF-8 32 KiB payload cap (413 on oversize). `api/workflows/execute.ts` `e0b7ffc` now validates before the server-side n8n call.
+- **Focused evidence:** exact Git helper blob `2534ec18aafb9d6b0d96953d7f1a15700011cac6` hash matched standalone Node22; **4/4 executable input tests PASS**. Earlier repository CI had clean install/test/typecheck/lint/build PASS but `npm audit` dev dependency scan FAIL; exact new head comprehensive CI/build/browser and real n8n execution **NOT VERIFIED**. Public production executions remain opt-in plus explicit workflow ID allowlist.
+- **Status:** **PARTIAL**, [Draft PR #2](https://github.com/shikakker/WorkflowPro/pull/2), no n8n jobs executed, secrets inspected, or production promotion.
